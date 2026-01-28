@@ -1,0 +1,15 @@
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\bin\Debug\net8.0\Crawler.exe
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\bin\Debug\net8.0\Crawler.deps.json
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\bin\Debug\net8.0\Crawler.runtimeconfig.json
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\bin\Debug\net8.0\Crawler.dll
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\bin\Debug\net8.0\Crawler.pdb
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.AssemblyInfoInputs.cache
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.AssemblyInfo.cs
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.csproj.CoreCompileInputs.cache
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.sourcelink.json
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.dll
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\refint\Crawler.dll
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.pdb
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.genruntimeconfig.cache
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\ref\Crawler.dll
