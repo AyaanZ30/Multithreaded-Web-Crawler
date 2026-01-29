@@ -73,19 +73,20 @@ namespace Crawler.Core
             System.Console.WriteLine($"Worker {_workerId} exiting");
         }
 
+        // Each worker calls the below method independently
         private async Task ProcessUrlAsync(string url, CancellationToken token)
         {
-            System.Console.WriteLine($"Worker {_workerId} visited={_frontier.VisitedCount}, Pending={_frontier.PendingCount}");
+            System.Console.WriteLine($"[START] Worker {_workerId} -> [{url}]");
 
             string htmlString;
 
             try
             {
-                htmlString = await _httpClient.GetStringAsync(url, token);   
+                htmlString = await _httpClient.GetStringAsync(url, token);  
+                System.Console.WriteLine($"[FETCHED] Worker {_workerId} -> [{url}] ({htmlString.Length} chars)"); 
             }
-            catch(Exception ex)
+            catch(InvalidOperationException)
             {
-                System.Console.WriteLine($"xxxxxxxxxx {ex.Message} xxxxxxxxxxxxxx");
                 return;
             }
 
@@ -100,6 +101,9 @@ namespace Crawler.Core
             var links = document.DocumentNode.SelectNodes("//a[@href]");
             if(links == null) return;
 
+            int discoveredLinks = links?.Count ?? 0;
+            Console.WriteLine($"[PARSED] Worker {_workerId} -> {url} (links={discoveredLinks})");
+
             foreach(var link in links)
             {
                 if(token.IsCancellationRequested) return;
@@ -111,6 +115,8 @@ namespace Crawler.Core
 
                 _frontier.AddURL(absoluteUrl);
             }
+
+            System.Console.WriteLine($"[DONE] Worker {_workerId} -> {url}");
         }
 
         private static bool TryNormalize(Uri baseUri, string href, out string absoluteUrl)
