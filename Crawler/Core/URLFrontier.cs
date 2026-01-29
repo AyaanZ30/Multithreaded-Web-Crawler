@@ -17,58 +17,78 @@ RESPONSIBILITIES :
 */
 namespace Crawler.Core
 {
+    public sealed class FrontierItem
+    {
+        public string childUrl {get;}
+        public string parentUrl {get;}
+        public int Depth {get;}
+        public FrontierItem(string Url, string ParentUrl, int depth)
+        {
+            childUrl = Url;
+            parentUrl = ParentUrl;
+            Depth = depth;
+        }
+    }
     public class URLFrontier
     {
-        private readonly BlockingCollection<string> _queue;      // holds URLs to be processed
+        private readonly BlockingCollection<FrontierItem> _queue;      // holds URLs to be processed
         private readonly ConcurrentDictionary<string, bool> _visited; // holds URLs that have already been seen
         private readonly ConcurrentDictionary<string, bool> _visitedParents;
+        private readonly int _maxDepth;
 
-        public URLFrontier(int? FrontierCapacity = null)
+        public URLFrontier(int maxDepth, int? capacity = null)
         {
-            _queue = (FrontierCapacity.HasValue) ? new BlockingCollection<string>(FrontierCapacity.Value) : new BlockingCollection<string>();
+            _maxDepth = maxDepth;
+            _queue = capacity.HasValue ? new BlockingCollection<FrontierItem>(capacity.Value) : new BlockingCollection<FrontierItem>();
             _visited = new ConcurrentDictionary<string, bool>();
             _visitedParents = new ConcurrentDictionary<string, bool>();
         }   
+
+        public void AddSeed(string url)
+        {
+            _visited.TryAdd(url, true);
+            _queue.TryAdd(new FrontierItem(Url : url, ParentUrl : null, depth : 0));
+        }
 
         public bool TryAddParent(Uri parentUri)
         {
             return _visitedParents.TryAdd(parentUri.AbsoluteUri, true);
         }
-        public bool AddURL(string url)
+        public bool AddURL(string childUrl, string parentUrl, int parentDepth)
         {
             if(_queue.IsAddingCompleted) return false;               // Additional (tight) completion check
-            if(string.IsNullOrWhiteSpace(url)) return false;
+            if(string.IsNullOrWhiteSpace(childUrl)) return false;
+
+            int childDepth = parentDepth + 1;
+            if(_maxDepth < childDepth) return false;
 
             // TryAdd guarantees atomic check + insert (add URL to queue if not already seen (_visited))
-            if (!_visited.TryAdd(url, true))     // DUPLICATE CHECK (only proceed if we successfully mark it as visited first.)
+            if (!_visited.TryAdd(childUrl, true))     // DUPLICATE CHECK (only proceed if we successfully mark it as visited first.)
             {
                 return false;
             }
 
             try
             {
-                bool addedOrNot = _queue.TryAdd(url);
-                return addedOrNot;
+                FrontierItem item = new FrontierItem(childUrl, parentUrl, childDepth);
+                return _queue.TryAdd(item);
             }catch(Exception ex)
             {
-                System.Console.WriteLine(ex.Message.ToString());
+                Console.WriteLine(ex.Message.ToString());
                 return false;
             }
         }
 
-        public bool GetURL(out string url, CancellationToken cancellationToken = default)
+        public bool GetURL(out FrontierItem item, CancellationToken cancellationToken = default)
         {
-            url = null;
-
             try
             {
-                return _queue.TryTake(out url, Timeout.Infinite, cancellationToken);
+                // item : childUrl + parentUrl + depth
+                return _queue.TryTake(out item, Timeout.Infinite, cancellationToken);
             }
             catch (OperationCanceledException)
             {
-                return false;
-            }catch (InvalidOperationException)
-            {
+                item = null;
                 return false;
             }
         }
@@ -76,15 +96,6 @@ namespace Crawler.Core
         public void Complete()
         {
             _queue.CompleteAdding();
-        }
-
-        public IReadOnlyCollection<string> GetVisitedUrlSnapshot()
-        {
-            return _visited.Keys.ToList();      // <string, bool> => <key : value>
-        }
-        public IReadOnlyCollection<string> GetPendingUrlSnapshot()
-        {
-            return _queue.ToArray();            
         }
 
         public int PendingCount => _queue.Count;

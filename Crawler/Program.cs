@@ -58,9 +58,10 @@ namespace Crawler
         static async Task Main(string[] args)
         {
             int maxVisitedUrls = 100;
+            int maxCrawlDepth = 5;
 
-            URLFrontier queue = new URLFrontier(FrontierCapacity : null);
-            queue.AddURL("https://www.google.com/");
+            URLFrontier queue = new URLFrontier(maxDepth : maxCrawlDepth, capacity : null);
+            queue.AddSeed("https://www.google.com/");
             
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             CancellationToken token = cts.Token;

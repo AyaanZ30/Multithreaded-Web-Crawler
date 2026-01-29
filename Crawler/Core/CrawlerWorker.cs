@@ -17,27 +17,25 @@ namespace Crawler.Core
         private readonly int _workerId;
         private readonly int _maxVisited;
         private readonly URLFrontier _frontier;
-        private readonly Action incrementActive;
-        private readonly Action decrementActive;
+        private readonly Action _onStart; 
+        private readonly Action _onStop; 
 
         // HTTP client constructoe to init client instance
-        private readonly HttpClient _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(10)
-        };
+        private readonly HttpClient _httpClient = new HttpClient();
 
-        public CrawlerWorker(int workerId, URLFrontier urlFrontier, Action incrementActive, Action decrementActive, int maxVisited)
+        public CrawlerWorker(int workerId, URLFrontier urlFrontier, Action onStart, Action onStop, int maxVisited)
         {
             _workerId = workerId;
             _frontier = urlFrontier;
             _maxVisited = maxVisited;
-            this.incrementActive = incrementActive;
-            this.decrementActive = decrementActive;
+            _onStart = onStart;
+            _onStop = onStop;
         }
 
         public async Task RunAsync(CancellationToken cancellationToken)
         {
-            System.Console.WriteLine($"Worker {_workerId} started");
+            Console.WriteLine($"Worker {_workerId} started");
+            _onStart?.Invoke(); 
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -47,63 +45,59 @@ namespace Crawler.Core
                     break;
                 }
                 // try to assign url to current worker 
-                if(!_frontier.GetURL(out var url, cancellationToken))
+                if(!_frontier.GetURL(out var item, cancellationToken))
                 {
                     break;  
                 }   
 
+                string parent = item.parentUrl;
+                string child = item.childUrl;
+                int parentDepth = item.Depth;
+
                 // Worker is active (+1) to process URL asynchronously
-                incrementActive();
                 try
                 {
-                    await ProcessUrlAsync(url, cancellationToken);
+                    await ProcessUrlAsync(parent, parentDepth, cancellationToken);
                 }
-                catch (OperationCanceledException)
+                catch(Exception ex)
                 {
-                    break;
-                }catch(Exception ex)
-                {
-                    System.Console.WriteLine($"Worker {_workerId} error on {url}: {ex.Message}");    
-                }
-                finally         // after processing, worker is passive (-1)
-                {
-                    decrementActive();
+                    Console.WriteLine($"Worker {_workerId} error on {parent}: {ex.Message}");    
                 }
             }
-            System.Console.WriteLine($"Worker {_workerId} exiting");
+            _onStop?.Invoke();
+            Console.WriteLine($"Worker {_workerId} exiting");
         }
 
-        // Each worker calls the below method independently
-        private async Task ProcessUrlAsync(string url, CancellationToken token)
+        // Each worker calls the below method independently (parentURL : PARENT)
+        private async Task ProcessUrlAsync(string parentURL, int parentDepth, CancellationToken token)
         {
-            System.Console.WriteLine($"[START] Worker {_workerId} -> [{url}]");
-
+            Console.WriteLine($"[START] Worker {_workerId} -> [{parentURL}]");
             string htmlString;
 
             try
             {
-                htmlString = await _httpClient.GetStringAsync(url, token);  
-                System.Console.WriteLine($"[FETCHED] Worker {_workerId} -> [{url}] ({htmlString.Length} chars)"); 
+                htmlString = await _httpClient.GetStringAsync(parentURL, token);  
+                Console.WriteLine($"[FETCHED] Worker {_workerId} -> [{parentURL}] ({htmlString.Length} chars)"); 
             }
-            catch(InvalidOperationException)
-            {
+            catch(Exception ex)
+            {   
+                Console.WriteLine($"Error in fetching data : {ex.Message} (url = {parentURL})");
                 return;
             }
 
             var document = new HtmlDocument();
             document.LoadHtml(htmlString);
 
-            var baseUri = new Uri(url);
-            System.Console.WriteLine(baseUri.ToString());
-
+            var baseUri = new Uri(parentURL);
             if(baseUri != null) _frontier.TryAddParent(baseUri);
             
             var links = document.DocumentNode.SelectNodes("//a[@href]");
             if(links == null) return;
 
             int discoveredLinks = links?.Count ?? 0;
-            Console.WriteLine($"[PARSED] Worker {_workerId} -> {url} (links={discoveredLinks})");
+            Console.WriteLine($"[PARSED] Worker {_workerId} -> {parentURL} (links = {discoveredLinks})");
 
+            // Concurrent Oppurtunistic Traversal (neither BFS nor DFS)
             foreach(var link in links)
             {
                 if(token.IsCancellationRequested) return;
@@ -111,12 +105,15 @@ namespace Crawler.Core
                 var href = link.GetAttributeValue("href", null);
                 if(String.IsNullOrWhiteSpace(href)) continue;
 
-                if(!TryNormalize(baseUri, href, out var absoluteUrl)) continue;
+                if(!TryNormalize(baseUri, href, out var childURL)) continue;
+                // every successsfull childURL : Child of parentURL 
 
-                _frontier.AddURL(absoluteUrl);
+                if(baseUri.Host != new Uri(childURL).Host) continue;
+
+                _frontier.AddURL(childURL, parentURL, parentDepth);
             }
 
-            System.Console.WriteLine($"[DONE] Worker {_workerId} -> {url}");
+            Console.WriteLine($"[DONE] Worker {_workerId} -> [{parentURL}]");
         }
 
         private static bool TryNormalize(Uri baseUri, string href, out string absoluteUrl)
