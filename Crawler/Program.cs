@@ -60,7 +60,7 @@ namespace Crawler
             int maxVisitedUrls = 100;
 
             URLFrontier queue = new URLFrontier(FrontierCapacity : null);
-            queue.AddURL("https://example.com");
+            queue.AddURL("https://www.google.com/");
             
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             CancellationToken token = cts.Token;
@@ -85,8 +85,9 @@ namespace Crawler
             await Task.WhenAll(workers);
 
             System.Console.WriteLine("=== Crawler Stopped ===");
-            System.Console.WriteLine($"VISITED URLs : {queue.VisitedCount}");
-            System.Console.WriteLine($"PENDING URLs : {queue.PendingCount}");
+
+            System.Console.WriteLine($"VISITED URLs : {queue.VisitedCount}\n");
+            System.Console.WriteLine($"PENDING URLs : {queue.PendingCount}\n");
         }
     }
 }

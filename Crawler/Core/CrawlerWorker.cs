@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Net.Http;
+using HtmlAgilityPack;
 
 /*
 Represents a single crawler worker
@@ -9,7 +11,7 @@ Continuously pulls URLs from the UrlFrontier and processes them.
 */
 
 namespace Crawler.Core
-{
+{ 
     public class CrawlerWorker
     {   
         private readonly int _workerId;
@@ -17,6 +19,13 @@ namespace Crawler.Core
         private readonly URLFrontier _frontier;
         private readonly Action incrementActive;
         private readonly Action decrementActive;
+
+        // HTTP client constructoe to init client instance
+        private readonly HttpClient _httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(10)
+        };
+
         public CrawlerWorker(int workerId, URLFrontier urlFrontier, Action incrementActive, Action decrementActive, int maxVisited)
         {
             _workerId = workerId;
@@ -66,20 +75,67 @@ namespace Crawler.Core
 
         private async Task ProcessUrlAsync(string url, CancellationToken token)
         {
-            System.Console.WriteLine($"Worker {_workerId} processing URL : {url}");
+            System.Console.WriteLine($"Worker {_workerId} visited={_frontier.VisitedCount}, Pending={_frontier.PendingCount}");
 
-            // Simulation network + parsing delay
-            await Task.Delay(500, token);
+            string htmlString;
 
-            // Simulation of discovering a new url
-            if(url.Length < 40)
+            try
             {
-                string childUrl1 = url + "/a";
-                string childUrl2 = url + "/b";
-
-                _frontier.AddURL(childUrl1);
-                _frontier.AddURL(childUrl2);
+                htmlString = await _httpClient.GetStringAsync(url, token);   
             }
+            catch(Exception ex)
+            {
+                System.Console.WriteLine($"xxxxxxxxxx {ex.Message} xxxxxxxxxxxxxx");
+                return;
+            }
+
+            var document = new HtmlDocument();
+            document.LoadHtml(htmlString);
+
+            var baseUri = new Uri(url);
+            System.Console.WriteLine(baseUri.ToString());
+
+            if(baseUri != null) _frontier.TryAddParent(baseUri);
+            
+            var links = document.DocumentNode.SelectNodes("//a[@href]");
+            if(links == null) return;
+
+            foreach(var link in links)
+            {
+                if(token.IsCancellationRequested) return;
+
+                var href = link.GetAttributeValue("href", null);
+                if(String.IsNullOrWhiteSpace(href)) continue;
+
+                if(!TryNormalize(baseUri, href, out var absoluteUrl)) continue;
+
+                _frontier.AddURL(absoluteUrl);
+            }
+        }
+
+        private static bool TryNormalize(Uri baseUri, string href, out string absoluteUrl)
+        {
+            absoluteUrl = null;
+
+            if (href.StartsWith("#") ||
+                href.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase) ||
+                href.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (!Uri.TryCreate(baseUri, href, out var resolved))
+                return false;
+
+            if (resolved.Scheme != Uri.UriSchemeHttp &&
+                resolved.Scheme != Uri.UriSchemeHttps)
+                return false;
+
+            var clean = new UriBuilder(resolved)
+            {
+                Fragment = ""
+            };
+
+            absoluteUrl = clean.Uri.AbsoluteUri;
+            return true;
         }
     }
 }
