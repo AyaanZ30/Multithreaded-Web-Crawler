@@ -19,8 +19,8 @@ namespace Crawler.Core
 {
     public sealed class FrontierItem
     {
-        public string childUrl {get;}
-        public string parentUrl {get;}
+        public string childUrl {get;}          // current Url to crawl
+        public string parentUrl {get;}         // where childUrl was found
         public int Depth {get;}
         public FrontierItem(string Url, string ParentUrl, int depth)
         {
@@ -31,32 +31,35 @@ namespace Crawler.Core
     }
     public class URLFrontier
     {
-        private readonly BlockingCollection<FrontierItem> _queue;      // holds URLs to be processed
+        private readonly PriorityQueue<FrontierItem, int> _queue;
+        private readonly SemaphoreSlim _itemsAvailable;              // limits number of threads that can access a resource pool concurrently
+        private readonly object _lock = new();
         private readonly ConcurrentDictionary<string, bool> _visited; // holds URLs that have already been seen
-        private readonly ConcurrentDictionary<string, bool> _visitedParents;
         private readonly int _maxDepth;
 
-        public URLFrontier(int maxDepth, int? capacity = null)
+        public URLFrontier(int maxDepth)
         {
             _maxDepth = maxDepth;
-            _queue = capacity.HasValue ? new BlockingCollection<FrontierItem>(capacity.Value) : new BlockingCollection<FrontierItem>();
+            _queue = new PriorityQueue<FrontierItem, int>();
+            _itemsAvailable = new SemaphoreSlim(initialCount : 0);
             _visited = new ConcurrentDictionary<string, bool>();
-            _visitedParents = new ConcurrentDictionary<string, bool>();
         }   
 
         public void AddSeed(string url)
         {
             _visited.TryAdd(url, true);
-            _queue.TryAdd(new FrontierItem(Url : url, ParentUrl : null, depth : 0));
+            var item = new FrontierItem(url, null, 0);
+            var priority = Priority(item);
+
+            lock (_lock)
+            {
+                _queue.Enqueue(item, priority);
+            }
+            _itemsAvailable.Release();
         }
 
-        public bool TryAddParent(Uri parentUri)
-        {
-            return _visitedParents.TryAdd(parentUri.AbsoluteUri, true);
-        }
         public bool AddURL(string childUrl, string parentUrl, int parentDepth)
         {
-            if(_queue.IsAddingCompleted) return false;               // Additional (tight) completion check
             if(string.IsNullOrWhiteSpace(childUrl)) return false;
 
             int childDepth = parentDepth + 1;
@@ -71,7 +74,14 @@ namespace Crawler.Core
             try
             {
                 FrontierItem item = new FrontierItem(childUrl, parentUrl, childDepth);
-                return _queue.TryAdd(item);
+                int priority = Priority(item);
+
+                lock (_lock)
+                {
+                    _queue.Enqueue(item, priority);
+                }
+                _itemsAvailable.Release();
+                return true;
             }catch(Exception ex)
             {
                 Console.WriteLine(ex.Message.ToString());
@@ -81,25 +91,51 @@ namespace Crawler.Core
 
         public bool GetURL(out FrontierItem item, CancellationToken cancellationToken = default)
         {
+            item = null;
+
             try
             {
-                // item : childUrl + parentUrl + depth
-                return _queue.TryTake(out item, Timeout.Infinite, cancellationToken);
-            }
-            catch (OperationCanceledException)
+                _itemsAvailable.Wait(cancellationToken);
+
+                lock (_lock)
+                {
+                    if(_queue.Count == 0) return false;
+                    item = _queue.Dequeue();
+                    return true;
+                }
+                
+            }catch(Exception e)
             {
-                item = null;
+                System.Console.WriteLine(e.Message);
                 return false;
             }
         }
 
-        public void Complete()
+        private int Priority(FrontierItem item)
         {
-            _queue.CompleteAdding();
+            int score = 0;
+
+            score += (_maxDepth - item.Depth)*10;
+
+            string[] keywords = {"blog", "research", "careers", "docs", "api"};
+
+            string path = item.childUrl.ToLowerInvariant();
+            foreach(var k in keywords)
+            {
+                if (path.Contains(k))
+                {
+                    score += 20;
+                }
+            }
+
+            if(path.EndsWith(".pdf")) score -= 20;
+            if(path.EndsWith(".zip")) score -= 50;
+            else score += 10;
+
+            return (score * (-1));
         }
 
         public int PendingCount => _queue.Count;
         public int VisitedCount => _visited.Count;
-        public int parentCount => _visitedParents.Count;
     }
 }

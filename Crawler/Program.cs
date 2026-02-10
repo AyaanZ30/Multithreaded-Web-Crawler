@@ -48,6 +48,12 @@ Check termination condition
   ↓
 Repeat or EXIT
 
+
+
+Shallower URLs almost always matter more (depth 2 URLs > depth 5 URLs) [HEURISTIC BASED]
+-> priority += (maxCrawlDepth - currentDepth) * 10
+-> same domain boost (+ 30 as Internal links > external links)
+-> Keyword boost (+20 per matched keyword (blog, docs, research, careers, etc))
 */
 namespace Crawler
 {
@@ -60,8 +66,8 @@ namespace Crawler
             int maxVisitedUrls = 100;
             int maxCrawlDepth = 5;
 
-            URLFrontier queue = new URLFrontier(maxDepth : maxCrawlDepth, capacity : null);
-            queue.AddSeed("https://www.google.com/");
+            URLFrontier queue = new URLFrontier(maxDepth : maxCrawlDepth);
+            queue.AddSeed(url : "https://www.anthropic.com/");
             
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             CancellationToken token = cts.Token;

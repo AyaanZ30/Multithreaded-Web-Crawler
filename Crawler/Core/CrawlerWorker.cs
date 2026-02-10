@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Net.Http;
 using HtmlAgilityPack;
+using System.Reflection.Metadata;
 
 /*
 Represents a single crawler worker
@@ -41,7 +42,6 @@ namespace Crawler.Core
             {
                 if(_frontier.VisitedCount >= _maxVisited)
                 {
-                    _frontier.Complete();
                     break;
                 }
                 // try to assign url to current worker 
@@ -50,18 +50,17 @@ namespace Crawler.Core
                     break;  
                 }   
 
-                string parent = item.parentUrl;
-                string child = item.childUrl;
-                int parentDepth = item.Depth;
+                string currentUrl = item.childUrl;
+                int depth = item.Depth;
 
                 // Worker is active (+1) to process URL asynchronously
                 try
                 {
-                    await ProcessUrlAsync(parent, parentDepth, cancellationToken);
+                    await ProcessUrlAsync(currentUrl, depth, cancellationToken);
                 }
                 catch(Exception ex)
                 {
-                    Console.WriteLine($"Worker {_workerId} error on {parent}: {ex.Message}");    
+                    Console.WriteLine($"Worker {_workerId} error on {currentUrl}: {ex.Message}");    
                 }
             }
             _onStop?.Invoke();
@@ -69,51 +68,65 @@ namespace Crawler.Core
         }
 
         // Each worker calls the below method independently (parentURL : PARENT)
-        private async Task ProcessUrlAsync(string parentURL, int parentDepth, CancellationToken token)
+        private async Task ProcessUrlAsync(string currentURL, int depth, CancellationToken token)
         {
-            Console.WriteLine($"[START] Worker {_workerId} -> [{parentURL}]");
-            string htmlString;
+            Console.WriteLine($"[START] Worker {_workerId} -> [{currentURL}]");
 
+            var htmlString = await FetchAsync(currentURL, token);
+            if (string.IsNullOrEmpty(htmlString)) return;
+
+            Uri baseUri = new Uri(currentURL);
+
+            var extractedLinks = ExtractLinks(htmlString, baseUri).ToList();
+            Console.WriteLine($"[PARSED] Worker {_workerId} -> {currentURL} (links = {extractedLinks.Count})");
+
+            EnqueueLinks(extractedLinks, currentURL, depth);
+
+            Console.WriteLine($"[DONE] Worker {_workerId} -> [{currentURL}]");
+        }
+
+        private void EnqueueLinks(IEnumerable<string> links, string parentUrl, int parentDepth)
+        {
+            foreach(var link in links)
+            {
+                var currentUrl = link;
+                _frontier.AddURL(currentUrl, parentUrl, parentDepth);
+            }
+        }
+
+        private async Task<string> FetchAsync(string url, CancellationToken token)
+        {
             try
             {
-                htmlString = await _httpClient.GetStringAsync(parentURL, token);  
-                Console.WriteLine($"[FETCHED] Worker {_workerId} -> [{parentURL}] ({htmlString.Length} chars)"); 
+                string fetchResult = await _httpClient.GetStringAsync(url, token);
+                return fetchResult;
             }
             catch(Exception ex)
-            {   
-                Console.WriteLine($"Error in fetching data : {ex.Message} (url = {parentURL})");
-                return;
+            {
+                Console.WriteLine($"Error in fetching data : {ex.Message}");
+                return "";
             }
+        }
 
+        private IEnumerable<string> ExtractLinks(string htmlContent, Uri baseUri)
+        {
             var document = new HtmlDocument();
-            document.LoadHtml(htmlString);
+            document.LoadHtml(htmlContent);
 
-            var baseUri = new Uri(parentURL);
-            if(baseUri != null) _frontier.TryAddParent(baseUri);
-            
             var links = document.DocumentNode.SelectNodes("//a[@href]");
-            if(links == null) return;
-
-            int discoveredLinks = links?.Count ?? 0;
-            Console.WriteLine($"[PARSED] Worker {_workerId} -> {parentURL} (links = {discoveredLinks})");
+            if(links == null) yield break; 
 
             // Concurrent Oppurtunistic Traversal (neither BFS nor DFS)
             foreach(var link in links)
             {
-                if(token.IsCancellationRequested) return;
-
                 var href = link.GetAttributeValue("href", null);
-                if(String.IsNullOrWhiteSpace(href)) continue;
+                
+                if(string.IsNullOrWhiteSpace(href)) continue;
+                if(!TryNormalize(baseUri, href, out var absoluteUrl)) continue;
+                if(baseUri.Host != new Uri(absoluteUrl).Host) continue;
 
-                if(!TryNormalize(baseUri, href, out var childURL)) continue;
-                // every successsfull childURL : Child of parentURL 
-
-                if(baseUri.Host != new Uri(childURL).Host) continue;
-
-                _frontier.AddURL(childURL, parentURL, parentDepth);
-            }
-
-            Console.WriteLine($"[DONE] Worker {_workerId} -> [{parentURL}]");
+                yield return absoluteUrl;
+            } 
         }
 
         private static bool TryNormalize(Uri baseUri, string href, out string absoluteUrl)
