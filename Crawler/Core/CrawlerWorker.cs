@@ -20,17 +20,27 @@ namespace Crawler.Core
         private readonly URLFrontier _frontier;
         private readonly Action _onStart; 
         private readonly Action _onStop; 
+        private readonly DomainRateLimiter _rateLimiterService;
+        
+        private static int _globalCrawled = 0;
+        CancellationTokenSource _cts = new CancellationTokenSource();
 
-        // HTTP client constructoe to init client instance
-        private readonly HttpClient _httpClient = new HttpClient();
 
-        public CrawlerWorker(int workerId, URLFrontier urlFrontier, Action onStart, Action onStop, int maxVisited)
+        // HTTP client constructor to init client instance (static to avoid a seperate client for each worker)
+        private static readonly HttpClient _httpClient = new HttpClient
+        { 
+            Timeout = TimeSpan.FromSeconds(10) 
+        };
+
+        public CrawlerWorker(int workerId, URLFrontier urlFrontier, CancellationTokenSource cts, Action onStart, Action onStop, int maxVisited, DomainRateLimiter rateLimiterService)
         {
             _workerId = workerId;
             _frontier = urlFrontier;
             _maxVisited = maxVisited;
+            _cts = cts;
             _onStart = onStart;
             _onStop = onStop;
+            _rateLimiterService = rateLimiterService;
         }
 
         public async Task RunAsync(CancellationToken cancellationToken)
@@ -72,6 +82,12 @@ namespace Crawler.Core
         {
             Console.WriteLine($"[START] Worker {_workerId} -> [{currentURL}]");
 
+            if(Interlocked.Increment(ref _globalCrawled) > _maxVisited)
+            {
+                _cts.Cancel();
+                return;
+            }
+
             var htmlString = await FetchAsync(currentURL, token);
             if (string.IsNullOrEmpty(htmlString)) return;
 
@@ -98,8 +114,9 @@ namespace Crawler.Core
         {
             try
             {
-                string fetchResult = await _httpClient.GetStringAsync(url, token);
-                return fetchResult;
+                _rateLimiterService.WaitForDomain(url);
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Fetching {url}");
+                return await _httpClient.GetStringAsync(url, token);
             }
             catch(Exception ex)
             {

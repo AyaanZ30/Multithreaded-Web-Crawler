@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "uBPOSHHrd4Q=",
+  "dgSpecHash": "lDnPq80LgTI=",
   "success": true,
   "projectFilePath": "C:\\Users\\91932\\OneDrive\\Desktop\\ML\\Multithreaded_Web_Crawler\\Crawler\\Crawler.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\91932\\.nuget\\packages\\groqsharp\\1.1.2\\groqsharp.1.1.2.nupkg.sha512",
     "C:\\Users\\91932\\.nuget\\packages\\htmlagilitypack\\1.12.4\\htmlagilitypack.1.12.4.nupkg.sha512"
   ],
   "logs": []

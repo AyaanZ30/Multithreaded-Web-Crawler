@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
 /*
 
 PURPOSE : Thread-safe URL frontier (shared queue) for URL crawler (stores URLs)
@@ -129,7 +128,7 @@ namespace Crawler.Core
             }
 
             if(path.EndsWith(".pdf")) score -= 20;
-            if(path.EndsWith(".zip")) score -= 50;
+            else if(path.EndsWith(".zip")) score -= 50;
             else score += 10;
 
             return (score * (-1));

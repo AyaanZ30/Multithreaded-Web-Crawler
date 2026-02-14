@@ -43,6 +43,10 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "GroqSharp": {
+              "target": "Package",
+              "version": "[1.1.2, )"
+            },
             "HtmlAgilityPack": {
               "target": "Package",
               "version": "[1.12.4, )"

@@ -16,3 +16,4 @@ C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\n
 C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\bin\Debug\net8.0\HtmlAgilityPack.dll
 C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.csproj.AssemblyReference.cache
 C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\obj\Debug\net8.0\Crawler.csproj.Up2Date
+C:\Users\91932\OneDrive\Desktop\ML\Multithreaded_Web_Crawler\Crawler\bin\Debug\net8.0\GroqSharp.dll

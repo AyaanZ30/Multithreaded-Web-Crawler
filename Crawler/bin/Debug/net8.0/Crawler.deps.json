@@ -8,10 +8,19 @@
     ".NETCoreApp,Version=v8.0": {
       "Crawler/1.0.0": {
         "dependencies": {
+          "GroqSharp": "1.1.2",
           "HtmlAgilityPack": "1.12.4"
         },
         "runtime": {
           "Crawler.dll": {}
+        }
+      },
+      "GroqSharp/1.1.2": {
+        "runtime": {
+          "lib/net8.0/GroqSharp.dll": {
+            "assemblyVersion": "1.1.2.0",
+            "fileVersion": "1.1.2.0"
+          }
         }
       },
       "HtmlAgilityPack/1.12.4": {
@@ -29,6 +38,13 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "GroqSharp/1.1.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-fqPhqbr2nz7TKx8jOaw0G9oRNianQbILyuGHz3RGdkWE3xbtU1blZVUL4M7I+s4XSfQsu0ERjIA/n6O/c1fP3Q==",
+      "path": "groqsharp/1.1.2",
+      "hashPath": "groqsharp.1.1.2.nupkg.sha512"
     },
     "HtmlAgilityPack/1.12.4": {
       "type": "package",

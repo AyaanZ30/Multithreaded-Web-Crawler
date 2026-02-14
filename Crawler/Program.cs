@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using Crawler.Basics.Threading;
 using Crawler.Core;
+using Crawler.Utils;
 
 
 /*
@@ -49,11 +50,15 @@ Check termination condition
 Repeat or EXIT
 
 
+IMPROVEMENTS: 
 
-Shallower URLs almost always matter more (depth 2 URLs > depth 5 URLs) [HEURISTIC BASED]
+A] Shallower URLs almost always matter more (depth 2 URLs > depth 5 URLs) [HEURISTIC BASED]
 -> priority += (maxCrawlDepth - currentDepth) * 10
 -> same domain boost (+ 30 as Internal links > external links)
 -> Keyword boost (+20 per matched keyword (blog, docs, research, careers, etc))
+
+
+B] Allow parallelism across domains & Throttle requests within the same domain
 */
 namespace Crawler
 {
@@ -68,6 +73,11 @@ namespace Crawler
 
             URLFrontier queue = new URLFrontier(maxDepth : maxCrawlDepth);
             queue.AddSeed(url : "https://www.anthropic.com/");
+
+            var domainLimiterService = new DomainRateLimiter(
+              requestsPerWindow : 1,
+              timeWindow : TimeSpan.FromSeconds(1)
+            );
             
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             CancellationToken token = cts.Token;
@@ -81,9 +91,11 @@ namespace Crawler
                 var worker = new CrawlerWorker(
                     workerId, 
                     queue,
+                    cts,
                     () => Interlocked.Increment(ref activeWorkers),
                     () => Interlocked.Decrement(ref activeWorkers),
-                    maxVisitedUrls
+                    maxVisitedUrls,
+                    domainLimiterService
                 );
     
                 workers.Add(Task.Run(() => worker.RunAsync(token)));  

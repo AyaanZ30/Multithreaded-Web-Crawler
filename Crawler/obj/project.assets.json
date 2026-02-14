@@ -2,6 +2,15 @@
   "version": 3,
   "targets": {
     "net8.0": {
+      "GroqSharp/1.1.2": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/GroqSharp.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/GroqSharp.dll": {}
+        }
+      },
       "HtmlAgilityPack/1.12.4": {
         "type": "package",
         "compile": {
@@ -18,6 +27,21 @@
     }
   },
   "libraries": {
+    "GroqSharp/1.1.2": {
+      "sha512": "fqPhqbr2nz7TKx8jOaw0G9oRNianQbILyuGHz3RGdkWE3xbtU1blZVUL4M7I+s4XSfQsu0ERjIA/n6O/c1fP3Q==",
+      "type": "package",
+      "path": "groqsharp/1.1.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "Logo.png",
+        "README.md",
+        "groqsharp.1.1.2.nupkg.sha512",
+        "groqsharp.nuspec",
+        "lib/net8.0/GroqSharp.dll"
+      ]
+    },
     "HtmlAgilityPack/1.12.4": {
       "sha512": "ljqvBabvFwKoLniuoQKO8b5bJfJweKLs4fUNS/V5dsvpo0A8MlJqxxn9XVmP2DaskbUXty6IYaWAi1SArGIMeQ==",
       "type": "package",
@@ -66,6 +90,7 @@
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "GroqSharp >= 1.1.2",
       "HtmlAgilityPack >= 1.12.4"
     ]
   },
@@ -111,6 +136,10 @@
       "net8.0": {
         "targetAlias": "net8.0",
         "dependencies": {
+          "GroqSharp": {
+            "target": "Package",
+            "version": "[1.1.2, )"
+          },
           "HtmlAgilityPack": {
             "target": "Package",
             "version": "[1.12.4, )"
