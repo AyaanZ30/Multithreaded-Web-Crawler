@@ -7,7 +7,7 @@ using Crawler.Core;
 using Crawler.Utils;
 
 
-/*
+/* 
 In a crawler => Every WORKER : PRODUCER (by discovering new links) + CONSUMER (shrinks the size of shared queue after extracting relevant info from URL)
 
 WORKER flow : take URL (shared queue) -> fetch page -> parse HTML -> extract data -> extract links (deeper URLs)
@@ -72,7 +72,7 @@ namespace Crawler
             int maxCrawlDepth = 5;
 
             URLFrontier queue = new URLFrontier(maxDepth : maxCrawlDepth);
-            queue.AddSeed(url : "https://www.anthropic.com/");
+            queue.AddSeed(url : "https://www.fancode.com/formula1");
 
             var domainLimiterService = new DomainRateLimiter(
               requestsPerWindow : 1,
