@@ -27,7 +27,7 @@ namespace Crawler.Core
             _timeWindow = timeWindow;
         }
 
-        public void WaitForDomain(string url)
+        public async Task WaitAsync(string url)
         {
             var domain = new Uri(url).Host;
 
@@ -36,7 +36,7 @@ namespace Crawler.Core
                 timeUnit : _timeWindow
             ));
 
-            limiter.WaitToProceed();
+            await limiter.WaitToProceedAsync();
         }
     }
 }

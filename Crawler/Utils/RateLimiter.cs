@@ -9,7 +9,12 @@ The goal is to ensure that a specific action only happens N times within a time 
 */
 namespace Crawler.Utils
 {
-    public interface IRateLimiter { void WaitToProceed(); }
+    public interface IRateLimiter 
+    { 
+        void WaitToProceed(); 
+        Task WaitToProceedAsync();
+    
+    }
 
     public class RateLimiter : IRateLimiter, IDisposable
     {
@@ -96,6 +101,29 @@ namespace Crawler.Utils
         public void WaitToProceed()      // implementing IRateLimiter's method [WaitToProceed()]
         {
             WaitToProceed(Timeout.Infinite);
+        }
+
+        public async Task<bool> WaitToProceedAsync(int millisecondsTimeout)
+        {
+            if(millisecondsTimeout < -1) throw new ArgumentOutOfRangeException("millisecondsTimeout");
+
+            CheckDisposed();
+
+            var entered = await _semaphore.WaitAsync(millisecondsTimeout);
+            if (entered)
+            {
+                var timeToExit = unchecked(Environment.TickCount + TimeUnitMilliseconds);
+                _exitTimes.Enqueue(timeToExit);   
+            }
+            return entered;
+        }
+        public async Task<bool> WaitToProceedAsync(TimeSpan timeout)
+        {
+            return await WaitToProceedAsync((int)(timeout.TotalMilliseconds));
+        }
+        public async Task WaitToProceedAsync()
+        {
+            await WaitToProceedAsync(Timeout.Infinite);
         }
 
 

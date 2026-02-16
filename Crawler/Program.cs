@@ -72,12 +72,14 @@ namespace Crawler
             int maxCrawlDepth = 5;
 
             URLFrontier queue = new URLFrontier(maxDepth : maxCrawlDepth);
-            queue.AddSeed(url : "https://www.fancode.com/formula1");
+            queue.AddSeed(url : "https://www.anthropic.com");
 
             var domainLimiterService = new DomainRateLimiter(
               requestsPerWindow : 1,
               timeWindow : TimeSpan.FromSeconds(1)
             );
+
+            var robotsFileHandler = new RobotsDotText();
             
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             CancellationToken token = cts.Token;
@@ -95,7 +97,8 @@ namespace Crawler
                     () => Interlocked.Increment(ref activeWorkers),
                     () => Interlocked.Decrement(ref activeWorkers),
                     maxVisitedUrls,
-                    domainLimiterService
+                    domainLimiterService,
+                    robotsFileHandler
                 );
     
                 workers.Add(Task.Run(() => worker.RunAsync(token)));  

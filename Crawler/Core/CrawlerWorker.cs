@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using HtmlAgilityPack;
 using System.Reflection.Metadata;
+using Crawler.Utils;
 
 /*
 Represents a single crawler worker
@@ -17,30 +18,28 @@ namespace Crawler.Core
     {   
         private readonly int _workerId;
         private readonly int _maxVisited;
-        private readonly URLFrontier _frontier;
+        private readonly URLFrontier _queue;
         private readonly Action _onStart; 
         private readonly Action _onStop; 
         private readonly DomainRateLimiter _rateLimiterService;
+        private readonly IRobotsDotText _robotsChecker;
+        private readonly HttpClient _httpClient;
         
         private static int _globalCrawled = 0;
         CancellationTokenSource _cts = new CancellationTokenSource();
 
 
-        // HTTP client constructor to init client instance (static to avoid a seperate client for each worker)
-        private static readonly HttpClient _httpClient = new HttpClient
-        { 
-            Timeout = TimeSpan.FromSeconds(10) 
-        };
-
-        public CrawlerWorker(int workerId, URLFrontier urlFrontier, CancellationTokenSource cts, Action onStart, Action onStop, int maxVisited, DomainRateLimiter rateLimiterService)
+        public CrawlerWorker(int workerId, URLFrontier queue, CancellationTokenSource cts, Action onStart, Action onStop, int maxVisited, DomainRateLimiter rateLimiterService, IRobotsDotText robotsChecker)
         {
             _workerId = workerId;
-            _frontier = urlFrontier;
+            _queue = queue;
             _maxVisited = maxVisited;
             _cts = cts;
             _onStart = onStart;
             _onStop = onStop;
             _rateLimiterService = rateLimiterService;
+            _robotsChecker = robotsChecker;
+            _httpClient = new HttpClient{Timeout = TimeSpan.FromSeconds(10)};
         }
 
         public async Task RunAsync(CancellationToken cancellationToken)
@@ -50,18 +49,41 @@ namespace Crawler.Core
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                if(_frontier.VisitedCount >= _maxVisited)
+                if(_queue.VisitedCount >= _maxVisited)
                 {
+                    System.Console.WriteLine($"[Worker {_workerId}] Max URLs reached, stopping..");
+                    _cts.Cancel();
                     break;
                 }
                 // try to assign url to current worker 
-                if(!_frontier.GetURL(out var item, cancellationToken))
+                if(!_queue.GetURL(out FrontierItem item, cancellationToken))
                 {
-                    break;  
+                    if(cancellationToken.IsCancellationRequested) 
+                        break;
+                    
+                    await Task.Delay(100, cancellationToken);
+                    continue;
                 }   
 
                 string currentUrl = item.childUrl;
                 int depth = item.Depth;
+
+                // Robots file procedure kick-off
+                try
+                {
+                    bool isAllowed = await _robotsChecker.IsCrawlAllowedAsync(
+                        currentUrl,
+                        "FancodeCrawler/1.0"
+                    );
+                    if (!isAllowed)
+                    {
+                        Console.WriteLine($"[Worker {_workerId}] BLOCKED by robots.txt: {currentUrl}");
+                        continue; 
+                    }
+                }catch(Exception ex)
+                {
+                    Console.WriteLine($"[Worker {_workerId}] Error checking robots.txt: {ex.Message}");   
+                }
 
                 // Worker is active (+1) to process URL asynchronously
                 try
@@ -106,7 +128,7 @@ namespace Crawler.Core
             foreach(var link in links)
             {
                 var currentUrl = link;
-                _frontier.AddURL(currentUrl, parentUrl, parentDepth);
+                _queue.AddURL(currentUrl, parentUrl, parentDepth);
             }
         }
 
@@ -114,7 +136,7 @@ namespace Crawler.Core
         {
             try
             {
-                _rateLimiterService.WaitForDomain(url);
+                await _rateLimiterService.WaitAsync(url);
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Fetching {url}");
                 return await _httpClient.GetStringAsync(url, token);
             }
